@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+    sql_proxy:
+        image: gcr.io/cloudsql-docker/gce-proxy:1.16
+        ports:
+            - "127.0.0.1:3306:3306"
+        command:
+            - "/cloud_sql_proxy"
+            - "- instances=django_Docker_GCP:europe-west1:django_Docker_GCP-dev=tcp:0.0.0.0:3306"
+            - "- credential_file=/root/keys/keyfile.json"
+        volumes:
+            - ./gcp/django_Docker_GCP-43535312.json:/root/keys/keyfile.json:ro
+        networks:
+            - some-net
+    web:
+        build: 
+            context:  ./web/
+        ports:
+            - "8000:8000"
+        volumes: 
+            - ./web:/code
+            - ./web/docker/nginx.conf:/etc/nginx/sites-enabled/nginx.conf
+            - ./web/docker/supervisord.dev.conf:/etc/supervisord.conf
+            - ./web/gcp:/code/gcp
+        environment: 
+            MYSQL_USER: web
+            MYSQL_PASSWORD: <your_password>
+            MYSQL_DB: django_Docker_GCP
+                PMA_HOST: sql_proxy
+                DEBUG: 1
+                ALLOWED_HOSTS:
+                    localhost
+                    127.0.0.1
+                    dev.django_Docker_GCP.web
+                ENV: dev
+                depends_on:
+                    - sql_proxy
+                networks:
+                    - some-net
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        ports:  - "127.0.0.1:8083:80"
+        environment: 
+            PMA_HOST: sql_proxy
+        depends_on:
+            - sql_proxy
+        networks: 
+            some-net:
+                driver:  bridge
+        
+
+        
